@@ -62,42 +62,43 @@ def get_weather_info(location):
         return response.text
     return "Something Went Wrong! Unable to fetch weather information."
 
+avl_tool_map = {
+    "get_weather_info": get_weather_info
+}
 
 message_history = [
     {"role": "system", "content": SYSTEM_PROMPT}
 ]
 
-user_input = input("Enter your query: ")
-message_history.append({"role": "user", "content": user_input})
-
-avl_tool_map = {
-    "get_weather_info": get_weather_info
-}
-
 while True:
-    response = client.chat.completions.create(
-        model="gemini-2.5-flash", 
-        response_format={"type" : "json_object"},
-        messages=message_history
-    )
-    assistant_message = response.choices[0].message.content
-    message_history.append({"role": "assistant", "content": assistant_message})
-    assistant_response_json = json.loads(assistant_message)
-    if assistant_response_json.get("step","") == "START":
-        print("Getting Started: ", assistant_response_json.get("content",""))
-        continue
-    if assistant_response_json.get("step","") == "TOOL":
-        tool_name = assistant_response_json.get("tool","")
-        tool_input = assistant_response_json.get("input","")
-        tool_response = avl_tool_map[tool_name](tool_input)
-        print(f"Calling Tool: {tool_name} with input: {tool_input} = {tool_response}")
-        message_history.append({"role": "developer", "content": json.dumps(
-            {"step": "OBSERVE", "tool": tool_name, "input": tool_input, "output": tool_response}
-        )})
-        continue
-    if assistant_response_json.get("step","") == "PLAN":
-        print("Planning: ", assistant_response_json.get("content",""))
-        continue
-    if assistant_response_json.get("step","") == "OUTPUT":
-        print("Output: ", assistant_response_json.get("content",""))
-        break
+
+    user_input = input("Enter Text:  ")
+    message_history.append({"role": "user", "content": user_input})
+
+    while True:
+        response = client.chat.completions.create(
+            model="gemini-2.5-flash", 
+            response_format={"type" : "json_object"},
+            messages=message_history
+        )
+        assistant_message = response.choices[0].message.content
+        message_history.append({"role": "assistant", "content": assistant_message})
+        assistant_response_json = json.loads(assistant_message)
+        if assistant_response_json.get("step","") == "START":
+            print("Getting Started: ", assistant_response_json.get("content",""))
+            continue
+        if assistant_response_json.get("step","") == "TOOL":
+            tool_name = assistant_response_json.get("tool","")
+            tool_input = assistant_response_json.get("input","")
+            tool_response = avl_tool_map[tool_name](tool_input)
+            print(f"Calling Tool: {tool_name} with input: {tool_input} = {tool_response}")
+            message_history.append({"role": "developer", "content": json.dumps(
+                {"step": "OBSERVE", "tool": tool_name, "input": tool_input, "output": tool_response}
+            )})
+            continue
+        if assistant_response_json.get("step","") == "PLAN":
+            print("Planning: ", assistant_response_json.get("content",""))
+            continue
+        if assistant_response_json.get("step","") == "OUTPUT":
+            print("Output: ", assistant_response_json.get("content",""))
+            break
