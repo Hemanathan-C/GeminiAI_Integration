@@ -1,8 +1,11 @@
+from typing import Optional
+
 from google import genai
 from openai import OpenAI
 from env import GEMINI_API_KEY
 import requests
 import json
+from pydantic import BaseModel, Field
 
 client = OpenAI(
     api_key=GEMINI_API_KEY, 
@@ -53,6 +56,12 @@ SYSTEM_PROMPT = """
     OUTPUT: { "step": "OUTPUT": "content": "The current weather in Delhi is cloudy with 25°C" }
 """
 
+class MyOutputFormat(BaseModel):
+    step: str = Field(..., description="The current step in the process. Example: START, PLAN, OUTPUT, TOOL.")
+    content: Optional[str] = Field(None, description="The content of the message. This can be any string that provides information about the current step.")
+    tool: Optional[str] = Field(None, description="The name of the tool to be used. This field is only relevant when the step is TOOL.")
+    input: Optional[str] = Field(None, description="The input for the tool. This field is only relevant when the step is TOOL.")
+
 
 def get_weather_info(location):
     
@@ -76,29 +85,29 @@ while True:
     message_history.append({"role": "user", "content": user_input})
 
     while True:
-        response = client.chat.completions.create(
+        response = client.chat.completions.parse(
             model="gemini-2.5-flash", 
-            response_format={"type" : "json_object"},
+            response_format=MyOutputFormat,
             messages=message_history
         )
         assistant_message = response.choices[0].message.content
         message_history.append({"role": "assistant", "content": assistant_message})
-        assistant_response_json = json.loads(assistant_message)
-        if assistant_response_json.get("step","") == "START":
-            print("Getting Started: ", assistant_response_json.get("content",""))
+        assistant_response_json = response.choices[0].message.parsed
+        if assistant_response_json.step == "START":
+            print("Getting Started: ", assistant_response_json.content)
             continue
-        if assistant_response_json.get("step","") == "TOOL":
-            tool_name = assistant_response_json.get("tool","")
-            tool_input = assistant_response_json.get("input","")
+        if assistant_response_json.step == "TOOL":
+            tool_name = assistant_response_json.tool
+            tool_input = assistant_response_json.input
             tool_response = avl_tool_map[tool_name](tool_input)
             print(f"Calling Tool: {tool_name} with input: {tool_input} = {tool_response}")
             message_history.append({"role": "developer", "content": json.dumps(
                 {"step": "OBSERVE", "tool": tool_name, "input": tool_input, "output": tool_response}
             )})
             continue
-        if assistant_response_json.get("step","") == "PLAN":
-            print("Planning: ", assistant_response_json.get("content",""))
+        if assistant_response_json.step == "PLAN":
+            print("Planning: ", assistant_response_json.content)
             continue
-        if assistant_response_json.get("step","") == "OUTPUT":
-            print("Output: ", assistant_response_json.get("content",""))
+        if assistant_response_json.step == "OUTPUT":
+            print("Output: ", assistant_response_json.content)
             break
