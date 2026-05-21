@@ -6,6 +6,7 @@ from env import GEMINI_API_KEY
 import requests
 import json
 from pydantic import BaseModel, Field
+import os
 
 client = OpenAI(
     api_key=GEMINI_API_KEY, 
@@ -30,6 +31,7 @@ SYSTEM_PROMPT = """
 
     available Tools:
     - get_weather_info(location): This tool takes a location as input and returns the current weather information for that location.
+    - run_command(cmd: str): This tool takes a linux command as input and executes it in the terminal, returns the output.
 
     Example 1:
     START: Hey, can you solve 2 + 3 * 5 / 10
@@ -71,8 +73,13 @@ def get_weather_info(location):
         return response.text
     return "Something Went Wrong! Unable to fetch weather information."
 
+def get_command(cmd: str):
+    result = os.system(cmd)
+    return result
+
 avl_tool_map = {
-    "get_weather_info": get_weather_info
+    "get_weather_info": get_weather_info,
+    "run_command": get_command
 }
 
 message_history = [
